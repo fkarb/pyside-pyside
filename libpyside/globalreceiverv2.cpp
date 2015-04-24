@@ -206,7 +206,11 @@ void GlobalReceiverV2::incRef(const QObject* link)
 {
     if (link) {
         if (!m_refs.contains(link)) {
-            if (QMetaObject::connect(link, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID))
+            bool result;
+            Py_BEGIN_ALLOW_THREADS
+            result = QMetaObject::connect(link, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID);
+            Py_END_ALLOW_THREADS
+            if (result)
                 m_refs.append(link);
             else
                 Q_ASSERT(false);
@@ -227,7 +231,10 @@ void GlobalReceiverV2::decRef(const QObject* link)
     m_refs.removeOne(link);
     if (link) {
         if (!m_refs.contains(link)) {
-            bool result = QMetaObject::disconnect(link, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID);
+            bool result;
+            Py_BEGIN_ALLOW_THREADS
+            result = QMetaObject::disconnect(link, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID);
+            Py_END_ALLOW_THREADS
             Q_ASSERT(result);
             if (!result)
                 return;
@@ -251,8 +258,12 @@ void GlobalReceiverV2::notify()
 {
     QSet<const QObject*> objs = QSet<const QObject*>::fromList(m_refs);
     foreach(const QObject* o, objs) {
+        Py_BEGIN_ALLOW_THREADS
         QMetaObject::disconnect(o, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID);
+        Py_END_ALLOW_THREADS
+        Py_BEGIN_ALLOW_THREADS
         QMetaObject::connect(o, DESTROY_SIGNAL_ID, this, DESTROY_SLOT_ID);
+        Py_END_ALLOW_THREADS
     }
 }
 
